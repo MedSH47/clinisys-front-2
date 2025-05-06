@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
-export default function LeftSidebar() {
+export default function LeftSide() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
@@ -38,7 +38,12 @@ export default function LeftSidebar() {
           </Link>
         </li>
         <li className="nav-item mb-3">
-          <Link className="nav-link text-white" to="/admin/settings">
+          <Link className="nav-link text-white" to="/AdminDashboard/postes">
+            <i className="bi bi-people-fill"></i> Postes
+          </Link>
+        </li>
+        <li className="nav-item mb-3">
+          <Link className="nav-link text-white" to="/AdminDashboard/settings">
             <i className="bi bi-gear"></i> Settings
           </Link>
         </li>

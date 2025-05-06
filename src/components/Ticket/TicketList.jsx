@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Row, Col, Card, Button, Form, Modal } from 'react-bootstrap'
 import authService from '../../services/authService'
+import Leftside from '../nav/Leftside'
 
 export default function TicketList() {
   const [tickets, setTickets] = useState([])
@@ -124,10 +125,12 @@ export default function TicketList() {
   }
 
   return (
-    
-    <div className="container mt-4">
+    <div className="d-flex">
+    <div className="p-4 flex-grow-1" style={{ marginLeft: 250 }}>
+      <Leftside/>
       <br />
       <br />
+      <h1 className="mb-4 text-center">Gestion des Modules</h1>
       <div className="d-flex justify-content-between mb-3">
         <Form.Select
           style={{ width: 200 }}
@@ -282,6 +285,7 @@ export default function TicketList() {
           </Form>
         </Modal.Body>
       </Modal>
+    </div>
     </div>
   )
 }

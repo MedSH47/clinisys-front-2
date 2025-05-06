@@ -102,6 +102,7 @@ export default function EquipeListe() {
     <div style={{ display: "flex" }}>
       <Leftside />
       <div className="container mt-5" style={{ marginLeft: 250, width: "100%" }}>
+        <br />
         <h2 className="text-center">Liste des Équipes</h2>
 
         {/* Search */}

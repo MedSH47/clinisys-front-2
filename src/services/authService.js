@@ -21,6 +21,16 @@ const authService = {
       throw error.response?.data || error.message;
     }
   },
+  // in services/authService.js
+getPostes: async () => {
+  const token = localStorage.getItem("token");
+  const res = await axios.get(`${API_URL}/postes`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+},
+
+
   // module
   getModules: async () => {
     const token = localStorage.getItem('token');

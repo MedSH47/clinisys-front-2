@@ -15,10 +15,13 @@ import AdminDashboard from './components/Admin_page/AdminDashboard';
 import Test from './components/testing/test';
 import EquipeListe from './components/Equipe/EquipeListe';
 import Module from './components/Module/Module';
+import Poste from './components/Poste/Poste'
+import Settings from './components/Admin_page/Settings';
 function AppWrapper() {
   const location = useLocation();
   const hideNavbar1 = location.pathname === '/login';
   const hideNavbar2 = location.pathname === '/register';
+  
 
 
   return (
@@ -38,6 +41,8 @@ function AppWrapper() {
           <Route path='/AdminDashboard' element={<PrivateRoute><AdminDashboard/></PrivateRoute>}/>
           <Route path='/AdminDashboard/EquipeListe' element={<EquipeListe/>}/>
           <Route path="/AdminDashboard/modules" element={<Module />} />
+          <Route path='/AdminDashboard/postes' element={<Poste/>} />
+          <Route path='/AdminDashboard/settings' element={<Settings />} />
         </Routes>
       </div>
     </>

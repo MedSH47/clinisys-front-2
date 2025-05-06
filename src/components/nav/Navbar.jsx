@@ -32,13 +32,13 @@ export default function Navbar() {
             {token ? (
               <>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/users">
-                    Users
+                  <Link className="nav-link" to="#">
+                    wait
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/users/create">
-                    Create User
+                  <Link className="nav-link" to="#">
+                    wait
                   </Link>
                 </li>
                 <li className="nav-item">
