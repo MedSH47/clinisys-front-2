@@ -47,9 +47,11 @@ const UsersList = () => {
     );
   }, [search, users]);
 
-  const formatDate = (timestamp) =>
-    timestamp ? new Date(timestamp).toISOString().split('T')[0] : 'N/A';
-
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp); // timestamp in ms
+    return date.toLocaleDateString(); // e.g., "5/5/2025"
+  };
   const toggleExpandUser = (userId) =>
     setExpandedUserId(expandedUserId === userId ? null : userId);
 

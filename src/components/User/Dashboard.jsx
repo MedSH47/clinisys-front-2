@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import CustomAlert from '../custom/CustomAlert';
 
 export default function Dashboard() {
-    const [showAlert, setShowAlert] = useState(false); // state to control the alert visibility
+    const [showAlert, setShowAlert] = useState(false);
     const navigate = useNavigate();
 
-    // Function to handle navigation based on the card clicked
+   
     const handleCardClick = (path) => {
-        navigate(path);  // Navigate to different path based on the clicked card
+        navigate(path); 
     };
 
     // Function to show the alert
@@ -28,7 +28,6 @@ export default function Dashboard() {
 
     return (
         <div className="d-flex" style={{ minHeight: '100vh' }}>
-            {/* Sidebar */}
             <div className="bg-dark text-white p-3" style={{ width: '250px', marginLeft: -100 }}>
                 <h4 className="mb-4">CLINISYS</h4>
                 <Nav className="flex-column">
@@ -40,9 +39,7 @@ export default function Dashboard() {
                 </Nav>
             </div>
 
-            {/* Main content */}
             <div className="flex-grow-1 bg-light">
-                {/* Topbar */}
                 <Navbar bg="light" className="px-4 shadow-sm">
                     <Navbar.Text className="me-auto">
                         Welcome back, <strong>{localStorage.getItem('username')}</strong>

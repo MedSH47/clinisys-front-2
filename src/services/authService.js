@@ -21,6 +21,87 @@ const authService = {
       throw error.response?.data || error.message;
     }
   },
+  // module
+  getModules: async () => {
+    const token = localStorage.getItem('token');
+    const res = await axios.get(`${API_URL}/modules`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+
+  // Get one module by ID
+  getModule: async (id) => {
+    const token = localStorage.getItem('token');
+    const res = await axios.get(`${API_URL}/modules/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+
+  // Create a new module
+  createModule: async (moduleData) => {
+    const token = localStorage.getItem('token');
+    const res = await axios.post(`${API_URL}/modules`, moduleData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return res.data;
+  },
+
+  // Update an existing module
+  updateModule: async (id, moduleData) => {
+    const token = localStorage.getItem('token');
+    const res = await axios.put(`${API_URL}/modules/${id}`, moduleData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return res.data;
+  },
+
+  // Delete a module
+  deleteModule: async (id) => {
+    const token = localStorage.getItem('token');
+    const res = await axios.delete(`${API_URL}/modules/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  //equipe
+  getEquipes: async ()=>{
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get(`${API_URL}/equipes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    }
+    catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  updateEquipe: async (id, equipeData) => {
+    const token = localStorage.getItem("token");
+    const res = await axios.put(`${API_URL}/equipes/${id}`, equipeData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return res.data;
+  },
+  
+  deleteEquipe: async (id) => {
+    const token = localStorage.getItem("token");
+    const res = await axios.delete(`${API_URL}/equipes/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return res.data;
+  },  
   // client service
   getClient: async () => {
     const token = localStorage.getItem('token');
