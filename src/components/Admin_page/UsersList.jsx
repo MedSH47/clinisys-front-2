@@ -5,6 +5,7 @@ import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import authService from '../../services/authService';
+import Leftside from '../nav/Leftside'
 
 const UsersList = () => {
   const [users, setUsers] = useState([]);
@@ -108,8 +109,11 @@ const UsersList = () => {
   const adminCount = users.filter(user => user.role === 'admin').length;
 
   return (
-    <div className="container mt-5">
+    <div  style={{ display: "flex" }}>
+      <Leftside/>
+    <div className="container mt-5"style={{ marginLeft: "250px", width: "100%",marginb  :"40px" }}>
       {/* Header */}
+      <br />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="fw-bold text-primary">
           <i className="bi bi-person-gear me-2"></i>User Management Dashboard
@@ -275,6 +279,7 @@ const UsersList = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+    </div>
     </div>
   );
 };

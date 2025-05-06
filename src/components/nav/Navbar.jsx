@@ -11,7 +11,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <nav className="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm fixed-top">
       <div className="container-fluid">
         <Link className="navbar-brand" to="/">
           <strong>JWT Auth</strong>

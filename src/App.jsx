@@ -17,11 +17,13 @@ import EquipeListe from './components/Equipe/EquipeListe';
 import Module from './components/Module/Module';
 function AppWrapper() {
   const location = useLocation();
-  const hideNavbar = location.pathname === '/Dashboard';
+  const hideNavbar1 = location.pathname === '/login';
+  const hideNavbar2 = location.pathname === '/register';
+
 
   return (
     <>
-      {!hideNavbar && <Navbar />}
+      {!hideNavbar1 && !hideNavbar2 && <Navbar />}
       <div className="container">
         <Routes>
           <Route path="/Dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
