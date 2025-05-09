@@ -1,306 +1,362 @@
-// src/components/User/UsersList.jsx
-import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Modal, Button, Form, Table } from 'react-bootstrap'
-import authService from '../../services/authService'
+// src/components/User/UsersTable.jsx
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  Table,
+  Button,
+  Form,
+  Spinner,
+  Alert,
+  Modal,
+  Row,
+  Col,
+} from 'react-bootstrap'
 import Leftside from '../nav/Leftside'
+import authService from '../../services/authService'
 
-const UsersList = () => {
+export default function UsersTable() {
+  // Data
   const [users, setUsers] = useState([])
-  const [filteredUsers, setFilteredUsers] = useState([])
   const [tickets, setTickets] = useState([])
-  const [search, setSearch] = useState('')
-  const [expandedUserId, setExpandedUserId] = useState(null)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [isPasswordActive, setIsPasswordActive] = useState(false)
-  const [editUser, setEditUser] = useState({
-    id: '', login: '', role: '', actif: false, password: ''
-  })
-  const navigate = useNavigate()
+  const [equipes, setEquipes] = useState([])
 
-  // Load users + tickets
+  // Loading / error
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Filters & search
+  const [searchTerm, setSearchTerm] = useState('')
+  const [withTicketsOnly, setWithTicketsOnly] = useState(false)
+  const [selectedEquipe, setSelectedEquipe] = useState('All')
+
+  // Tickets modal
+  const [showTicketsModal, setShowTicketsModal] = useState(false)
+  const [modalTickets, setModalTickets] = useState([])
+  const [modalUser, setModalUser] = useState(null)
+
+  // User add/edit modal
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [userForm, setUserForm] = useState({
+    login: '',
+    role: 'User',
+    actif: false,
+    idEquip: '',
+  })
+  const [savingUser, setSavingUser] = useState(false)
+
+  // Load initial data
   useEffect(() => {
     ;(async () => {
       try {
-        const [uData, tData] = await Promise.all([
+        const [uData, tData, eData] = await Promise.all([
           authService.getUsers(),
-          authService.getAllTickets()
+          authService.getAllTickets(),
+          authService.getEquipes(),
         ])
         setUsers(uData)
-        setFilteredUsers(uData)
         setTickets(tData)
+        setEquipes(eData)
       } catch (err) {
-        if (err === 'Authorization header is missing or invalid') {
-          return navigate('/login')
-        }
-        alert(err.error || 'Failed to load data')
-      }   
+        setError('Failed to load data')
+      } finally {
+        setLoading(false)
+      }
     })()
-  }, [navigate])
+  }, [])
 
-  // Search filter
-  useEffect(() => {
-    setFilteredUsers(
-      users.filter(u =>
-        u.login.toLowerCase().includes(search.toLowerCase())
+  // Helpers
+  const usersWithTickets = useMemo(() => {
+    const s = new Set()
+    tickets.forEach(t => {
+      if (t.collaborateur?.id) s.add(t.collaborateur.id)
+    })
+    return s
+  }, [tickets])
+
+  const displayedUsers = useMemo(() => {
+    return users.filter(u => {
+      if (
+        searchTerm &&
+        !u.login.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    )
-  }, [search, users])
+        return false
+      if (withTicketsOnly && !usersWithTickets.has(u.id)) return false
+      if (
+        selectedEquipe !== 'All' &&
+        u.idEquip?.id.toString() !== selectedEquipe
+      )
+        return false
+      return true
+    })
+  }, [users, searchTerm, withTicketsOnly, selectedEquipe, usersWithTickets])
 
-  const formatDate = ts =>
-    ts ? new Date(ts).toLocaleDateString() : 'N/A'
+  const fmtDate = ts =>
+    ts ? new Date(ts).toLocaleDateString() : '—'
 
-  const toggleExpandUser = id =>
-    setExpandedUserId(expandedUserId === id ? null : id)
-
-  const handleEdit = user => {
-    setEditUser({ ...user, password: '' })
-    setIsPasswordActive(false)
-    setShowEditModal(true)
+  // Open tickets modal
+  const handleCountClick = user => {
+    const ut = tickets.filter(t => t.collaborateur?.id === user.id)
+    setModalUser(user)
+    setModalTickets(ut)
+    setShowTicketsModal(true)
   }
 
+  // Open add/edit user modal
+  const openUserModal = user => {
+    if (user) {
+      setEditingUser(user)
+      setUserForm({
+        login: user.login,
+        role: user.role,
+        actif: user.actif,
+        idEquip: user.idEquip?.id || '',
+      })
+    } else {
+      setEditingUser(null)
+      setUserForm({ login: '', role: 'User', actif: false, idEquip: '' })
+    }
+    setShowUserModal(true)
+  }
+  const closeUserModal = () => setShowUserModal(false)
+
+  // Save user (create or update)
+  const handleUserSubmit = async e => {
+    e.preventDefault()
+    setSavingUser(true)
+    try {
+      const payload = {
+        login: userForm.login,
+        role: userForm.role,
+        actif: userForm.actif,
+        idEquip: userForm.idEquip ? { id: +userForm.idEquip } : null,
+      }
+      let res
+      if (editingUser) {
+        res = await authService.updateUser(editingUser.id, payload)
+        setUsers(us => us.map(u => (u.id === res.id ? res : u)))
+      } else {
+        res = await authService.createUser(payload)
+        setUsers(us => [res, ...us])
+      }
+      closeUserModal()
+    } catch {
+      alert('Save user failed')
+    } finally {
+      setSavingUser(false)
+    }
+  }
+
+  // Delete user
   const handleDelete = async id => {
     if (!window.confirm('Delete this user?')) return
     try {
       await authService.deleteUser(id)
-      const updated = users.filter(u => u.id !== id)
-      setUsers(updated)
-      setFilteredUsers(updated)
-      alert('User deleted')
-    } catch (err) {
-      alert(err.error || 'Delete failed')
+      setUsers(us => us.filter(u => u.id !== id))
+    } catch {
+      alert('Delete failed')
     }
   }
 
-  const handleUpdateSubmit = async () => {
-    const payload = { ...editUser }
-    if (!isPasswordActive || !payload.password) delete payload.password
-    try {
-      const updated = await authService.updateUser(payload.id, payload)
-      const newList = users.map(u => (u.id === updated.id ? updated : u))
-      setUsers(newList)
-      setFilteredUsers(newList.filter(u =>
-        u.login.toLowerCase().includes(search.toLowerCase())
-      ))
-      setShowEditModal(false)
-      alert('User updated')
-    } catch (err) {
-      alert(err.error || 'Update failed')
-    }
-  }
-
-  const handleFieldChange = e => {
-    const { name, value, type, checked } = e.target
-    setEditUser({
-      ...editUser,
-      [name]: type === 'checkbox' ? checked : value
-    })
-  }
-
-  // Tickets assigned to a given user (by collaborator field)
-  const ticketsForUser = login =>
-    tickets.filter(t => t.collaborateur === login)
-
-  const activeCount = users.filter(u => u.actif).length
-  const adminCount = users.filter(u => u.role === 'Admin').length
+  if (loading)
+    return (
+      <div className="d-flex justify-content-center mt-5">
+        <Spinner animation="border" />
+      </div>
+    )
+  if (error) return <Alert variant="danger">{error}</Alert>
 
   return (
-    <div style={{ display: 'flex' }}>
-      <Leftside />
-      <div className="container mt-5" style={{ marginLeft: 250, width: '100%' }}>
-        <br />
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="fw-bold text-primary">
-            <i className="bi bi-people-fill me-2"></i>
-            User Management
-          </h2>
-          <Link to="/users/create" className="btn btn-success">
-            <i className="bi bi-plus-circle me-1"></i>Create User
-          </Link>
-        </div>
+    <>
+      <div style={{ display: 'flex' }}>
+        <Leftside />
+        <div className="container mt-5" style={{ marginLeft: 250, width: '100%' }}>
+          <h2 className="mb-4">User Management</h2>
 
-        {/* Stats */}
-        <div className="row mb-2">
-          {[
-            ['Total Users', users.length],
-            ['Active Users', activeCount],
-            ['Admin Users', adminCount],
-          ].map(([label, count]) => (
-            <div key={label} className="col-md-4 mb-2">
-              <div className="p-3 bg-white shadow-sm rounded text-center">
-                <h6 className="mb-1">{label}</h6>
-                <h3>{count}</h3>
-              </div>
-            </div>
-          ))}
-        </div>
+          {/* Controls */}
+          <div className="d-flex align-items-center mb-3">
+            <Form.Control
+              type="text"
+              placeholder="Search by login..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ maxWidth: 200 }}
+              className="me-3"
+            />
+            <Button
+              variant={withTicketsOnly ? 'primary' : 'outline-primary'}
+              className="me-3"
+              onClick={() => setWithTicketsOnly(w => !w)}
+            >
+              {withTicketsOnly ? 'Only With Tickets' : 'Show With Tickets'}
+            </Button>
+            <Form.Select
+              style={{ maxWidth: 200 }}
+              value={selectedEquipe}
+              onChange={e => setSelectedEquipe(e.target.value)}
+              className="me-3"
+            >
+              <option value="All">All Équipes</option>
+              {equipes.map(eq => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.nomEquipe}
+                </option>
+              ))}
+            </Form.Select>
+            <Button variant="success" onClick={() => openUserModal(null)}>
+              + Add User
+            </Button>
+          </div>
 
-        {/* Search */}
-        <div className="input-group mb-4">
-          <span className="input-group-text"><i className="bi bi-search"></i></span>
-          <input
-            className="form-control"
-            placeholder="Search by username..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-
-        {/* User Cards */}
-        <div className="row">
-          {filteredUsers.map(user => (
-            <div key={user.id} className="col-md-6 col-lg-4 mb-4">
-              <div className="card h-100 shadow-sm">
-                <div className="card-body">
-                  <h5 className="card-title">
-                    <i className="bi bi-person-circle me-1"></i>
-                    {user.login}
-                  </h5>
-                  <p><strong>Role:</strong> {user.role}</p>
-                  <p>
-                    <strong>Status:</strong>{' '}
-                    <span className={`badge ${user.actif ? 'bg-success' : 'bg-secondary'}`}>
-                      {user.actif ? 'Active' : 'Inactive'}
-                    </span>
-                  </p>
-
-                  {/* Expanded details */}
-                  {expandedUserId === user.id && (
-                    <>
-                      <hr />
-                      <p><strong>ID:</strong> {user.id}</p>
-                      <p><strong>Created:</strong> {formatDate(user.creationDate)}</p>
-                      <p><strong>By:</strong> {user.creationUser}</p>
-
-                      {/* Tickets Table */}
-                      <h6 className="mt-3">Assigned Tickets</h6>
-                      <Table size="sm" bordered hover className="mb-3">
-                        <thead>
-                          <tr>
-                            <th>#</th><th>Status</th><th>Due</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ticketsForUser(user.login).map(t => (
-                            <tr key={t.id}>
-                              <td>{t.numTicket}</td>
-                              <td>{t.status}</td>
-                              <td>{t.echeance}</td>
-                            </tr>
-                          ))}
-                          {!ticketsForUser(user.login).length && (
-                            <tr>
-                              <td colSpan="3" className="text-center">No tickets</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </Table>
-                    </>
-                  )}
-
-                  <div className="d-flex justify-content-between">
-                    <Button
-                      size="sm"
-                      variant="outline-primary"
-                      onClick={() => toggleExpandUser(user.id)}
-                    >
-                      {expandedUserId === user.id ? 'Hide Details' : 'Details'}
-                    </Button>
-
-                    <div>
-                      <Button
-                        size="sm"
-                        variant="warning"
-                        className="me-2"
-                        onClick={() => handleEdit(user)}
-                      >
+          {/* Table */}
+          <Table striped bordered hover responsive>
+            <thead className="table-dark">
+              <tr>
+                <th>ID</th>
+                <th>Login</th>
+                <th>Role</th>
+                <th>Active</th>
+                <th>Équipe</th>
+                <th>Tickets</th>
+                <th>Created On</th>
+                <th>Created By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedUsers.map(u => {
+                const count = tickets.filter(t => t.collaborateur?.id === u.id).length
+                return (
+                  <tr key={u.id}>
+                    <td>{u.id}</td>
+                    <td>{u.login}</td>
+                    <td>{u.role}</td>
+                    <td>{u.actif ? 'Yes' : 'No'}</td>
+                    <td>{u.idEquip?.nomEquipe || '—'}</td>
+                    <td>
+                      <Button variant="link" size="sm" onClick={() => handleCountClick(u)}>
+                        {count}
+                      </Button>
+                    </td>
+                    <td>{fmtDate(u.creationDate)}</td>
+                    <td>{u.creationUser || '—'}</td>
+                    <td>
+                      <Button size="sm" className="me-2" onClick={() => openUserModal(u)}>
                         Edit
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleDelete(user.id)}
-                      >
+                      <Button size="sm" variant="danger" onClick={() => handleDelete(u.id)}>
                         Delete
                       </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </Table>
         </div>
-
-        {/* Edit Modal */}
-        <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-          <Modal.Header closeButton>
-            <Modal.Title>Edit User: {editUser.login}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form>
-              <Form.Group className="mb-3">
-                <Form.Label>Login</Form.Label>
-                <Form.Control
-                  name="login"
-                  value={editUser.login || ''}
-                  onChange={handleFieldChange}
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Role</Form.Label>
-                <Form.Select
-                  name="role"
-                  value={editUser.role || ''}
-                  onChange={handleFieldChange}
-                >
-                  <option>Admin</option>
-                  <option>User</option>
-                </Form.Select>
-              </Form.Group>
-
-              <Form.Check
-                className="mb-3"
-                label="Active"
-                name="actif"
-                checked={!!editUser.actif}
-                onChange={handleFieldChange}
-              />
-
-              <Form.Group className="mb-3">
-                <Form.Label>Password</Form.Label>
-                <Form.Control
-                  name="password"
-                  type="password"
-                  value={editUser.password || ''}
-                  onChange={handleFieldChange}
-                  disabled={!isPasswordActive}
-                />
-                {!isPasswordActive && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => setIsPasswordActive(true)}
-                  >
-                    Change Password
-                  </Button>
-                )}
-              </Form.Group>
-            </Form>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleUpdateSubmit}>
-              Save
-            </Button>
-          </Modal.Footer>
-        </Modal>
       </div>
-    </div>
+
+      {/* Tickets Modal */}
+      <Modal
+        show={showTicketsModal}
+        onHide={() => setShowTicketsModal(false)}
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Tickets for {modalUser?.login}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {modalTickets.length === 0 ? (
+            <Alert variant="info">No tickets assigned.</Alert>
+          ) : (
+            
+            <Table striped bordered hover responsive>
+              
+              <thead>
+                <tr>
+                  <th>ID</th><th>#</th><th>Designation</th><th>Status</th>
+                  <th>Priorité</th><th>Due</th><th>Created</th><th>By</th>
+                  <th>Client</th><th>Équipe</th><th>Module</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalTickets.map(t => (
+                  
+                  <tr key={t.id}>
+                    
+                    <td>{t.id}</td>
+                    <td>{t.numTicket}</td>
+                    <td>{t.designation}</td>
+                    <td>{t.status}</td>
+                    <td>{t.priorite}</td>
+                    <td>{t.echeance}</td>
+                    <td>{new Date(t.dateCreation).toLocaleString()}</td>
+                    <td>{t.creationUser}</td>
+                    <td>{t.idClient ? `${t.idClient.nom} ${t.idClient.prenom}` : '—'}</td>
+                    <td>{t.idEquip?.nomEquipe || '—'}</td>
+                    <td>{t.idModule?.designation || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Add/Edit User Modal */}
+      <Modal show={showUserModal} onHide={closeUserModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>{editingUser ? 'Edit User' : 'Add User'}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleUserSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Label>Login</Form.Label>
+              <Form.Control
+                value={userForm.login}
+                onChange={e => setUserForm(f => ({ ...f, login: e.target.value }))}
+                required
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col>
+                <Form.Check
+                  type="checkbox"
+                  label="Active"
+                  checked={userForm.actif}
+                  onChange={e => setUserForm(f => ({ ...f, actif: e.target.checked }))}
+                />
+              </Col>
+              <Col>
+                <Form.Select
+                  value={userForm.role}
+                  onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))}
+                >
+                  <option>User</option>
+                  <option>Admin</option>
+                </Form.Select>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Équipe</Form.Label>
+              <Form.Select
+                value={userForm.idEquip}
+                onChange={e => setUserForm(f => ({ ...f, idEquip: e.target.value }))}
+              >
+                <option value="">None</option>
+                {equipes.map(eq => (
+                  <option key={eq.id} value={eq.id}>{eq.nomEquipe}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <div className="text-end">
+              <Button variant="secondary" onClick={closeUserModal}>Cancel</Button>
+              <Button type="submit" className="ms-2" disabled={savingUser}>
+                {savingUser ? <Spinner animation="border" size="sm" /> : 'Save'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+    </>
   )
 }
-
-export default UsersList

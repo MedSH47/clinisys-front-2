@@ -31,7 +31,7 @@ export default function Settings() {
   const [users, setUsers] = useState([])
   const [filter, setFilter] = useState('')
   const [alert, setAlert] = useState({ color: '', text: '' })
-  const [openUsers, setOpenUsers] = useState(true)
+  const [openUsers, setOpenUsers] = useState(false)
 
   // Load current user + all users
   useEffect(() => {

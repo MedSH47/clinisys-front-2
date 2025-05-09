@@ -198,9 +198,10 @@ export default function AdminDashboard() {
               <ul className="list-group">
                 {recentTickets.map((ticket, index) => (
                   <li key={index} className="list-group-item">
-                    "{ticket.designation || 'No Title'}" - {ticket.status} - {fmtDate(ticket.dateCreation)} - {ticket.collaborateur ? ticket.collaborateur : "none"}
+                    "{ticket.designation || 'No Title'}" - {ticket.status} - {fmtDate(ticket.dateCreation)} - {ticket.collaborateur ? ticket.collaborateur.login : "none"}
                   </li>
-                ))}
+                  
+                ))}{console.log(recentTickets)}
               </ul>
             </div>
             <div className="col-md-5">
@@ -213,6 +214,7 @@ export default function AdminDashboard() {
                     .map((ticket, index) => (
                       <li key={index} className="list-group-item">
                         {ticket.collaborateur} – {ticket.designation}
+                        
                       </li>
                     ))
                 }
