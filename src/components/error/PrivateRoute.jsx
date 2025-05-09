@@ -1,6 +1,13 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom'
+import AccessDenied from './AccessDenied';
 
 export default function PrivateRoute({ children }) {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
+  const role = localStorage.getItem('userrole');
+
+  if (role === 'ROLE_Admin') {
+    return children;
+  } else {
+    localStorage.clear();
+    return <AccessDenied/>
+  }
 }

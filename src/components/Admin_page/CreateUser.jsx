@@ -13,6 +13,7 @@ const CreateUser = () => {
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
 
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -28,7 +29,7 @@ const CreateUser = () => {
     try {
       await authService.createUser(formData);
       setSuccess(true);
-      setTimeout(() => navigate('/users'), 1500);
+      setTimeout(() => navigate('/users/create'), 1500);
     } catch (err) {
       setError(err.error || ' user existe');
     }
@@ -116,7 +117,7 @@ const CreateUser = () => {
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
-                    onClick={() => navigate('/users')}
+                    onClick={() => navigate('/AdminDashboard/users')}
                   >
                     Cancel
                   </button>

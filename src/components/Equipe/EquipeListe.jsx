@@ -186,7 +186,8 @@ export default function EquipeListe() {
                               <thead>
                                 <tr>
                                   <th>ID</th>
-                                  <th>#</th>
+                                  <th>Designation</th>
+                                  <th>Num°  </th>
                                   <th>Status</th>
                                   <th>Priorité</th>
                                   <th>Échéance</th>
@@ -197,6 +198,7 @@ export default function EquipeListe() {
                                 {eq.ticketList.map(t=>(
                                   <tr key={t.id}>
                                     <td>{t.id}</td>
+                                    <td>{t.designation}</td>
                                     <td>{t.numTicket}</td>
                                     <td>{t.status}</td>
                                     <td>{t.priorite}</td>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 export default function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const role = localStorage.getItem('userrole')
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -13,9 +14,12 @@ export default function Navbar() {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm fixed-top">
       <div className="container-fluid">
-        <Link className="navbar-brand" to="/">
-          <strong>JWT Auth</strong>
+        <Link className="navbar-brand" to="#">
+          <strong>Clinisys</strong>
+          <strong>  Welcome {localStorage.getItem('username')}</strong>
         </Link>
+        
+        
         <button
           className="navbar-toggler"
           type="button"
@@ -29,7 +33,7 @@ export default function Navbar() {
         </button>
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto">
-            {token ? (
+            {role==="ROLE_Admin" ? (
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to="#">
@@ -58,6 +62,11 @@ export default function Navbar() {
                   <Link className="nav-link" to="/register">
                     Register
                   </Link>
+                </li>
+                <li className="nav-item">
+                  <button className="nav-link btn btn-link" onClick={handleLogout}>
+                    Logout
+                  </button>
                 </li>
               </>
             )}

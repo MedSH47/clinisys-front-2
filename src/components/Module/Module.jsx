@@ -116,11 +116,11 @@ export default function ModuleListe() {
           />
         </InputGroup>
 
-        <Row xs={1} md={2} lg={3} className="g-4">
+        <Row xs={3} md={1} lg={1} className="g-1" >
           {filtered.map((mod) => (
             <Col key={mod.id}>
               <Card className="h-100 shadow border-0">
-                <Card.Header className="d-flex align-items-center bg-info text-white">
+                <Card.Header className="d-flex align-items-center bg-black text-white">
                   <h5 className="mb-0 flex-grow-1">{mod.designation}</h5>
                   <Badge bg="light" text="dark">#{mod.id}</Badge>
                   <Button

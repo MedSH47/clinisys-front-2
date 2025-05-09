@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
-import authService from '../../services/authService'; // adjust path if needed
+import authService from '../../services/authService';
 
 export default function AdminDashboard() {
   const [usersCount, setUsersCount] = useState(0);
@@ -17,16 +17,37 @@ export default function AdminDashboard() {
     ACCEPTED: 0
   });
 
+  const [equipesWithoutTickets, setEquipesWithoutTickets] = useState([]);
+  const [ticketsPerEquipe, setTicketsPerEquipe] = useState([]);
+  const [recentTickets, setRecentTickets] = useState([]);
+
+  const fmtDate = v => {
+    if (!v) return '—'
+    const d = new Date(v)
+    return isNaN(d) ? '—' : d.toISOString().split('T')[0]
+  }
+
   useEffect(() => {
     const fetchData = async () => {
+      
       try {
-        const users = await authService.getUsers();
-        const modules = await authService.getModules();
-        const equipes = await authService.getEquipes();
-        const tickets = await authService.getAllTickets();
+        const [users, modules, equipes, tickets] = await Promise.all([
+          authService.getUsers(),
+          authService.getModules(),
+          authService.getEquipes(),
+          authService.getAllTickets()
+        ]);
 
-        // Count ticket statuses based on backend enum values
+        setUsersCount(users.length);
+        setModulesCount(modules.length);
+        setEquipesCount(equipes.length);
+
         const statusCount = { REFUSED: 0, EN_ATTENTE: 0, ACCEPTED: 0 };
+
+        // Sort tickets by date for recent ticket list
+        const sortedTickets = [...tickets].sort((a, b) => new Date(b.dateCreation) - new Date(a.dateCreation));
+        setRecentTickets(sortedTickets.slice(0, 5));
+
         tickets.forEach(ticket => {
           switch (ticket.status) {
             case 'Refuse':
@@ -43,10 +64,32 @@ export default function AdminDashboard() {
           }
         });
 
-        setUsersCount(users.length);
-        setModulesCount(modules.length);
-        setEquipesCount(equipes.length);
+        // Equipes with 0 tickets
+        let equipesWithZeroTickets = [];
+        equipes.forEach(equipe => {
+          if (equipe.ticketList.length === 0) {
+            equipesWithZeroTickets.push(equipe.nomEquipe);
+          }
+        });
+
+        // Count tickets per equipe
+        const equipeTicketMap = new Map();
+        equipes.forEach(equipe => {
+          equipeTicketMap.set(equipe.nomEquipe, 0);
+        });
+        
+        equipes.forEach(element => {
+          
+          equipeTicketMap.set(element.nomEquipe,element.ticketList.length)
+        });
+        const equipeStats = Array.from(equipeTicketMap.entries()).map(([name, count]) => ({
+          name,
+          count
+        }));
+
         setTicketStatusCounts(statusCount);
+        setEquipesWithoutTickets(equipesWithZeroTickets);
+        setTicketsPerEquipe(equipeStats);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       }
@@ -79,8 +122,6 @@ export default function AdminDashboard() {
   return (
     <div className="d-flex">
       <LeftSidebar />
-
-      {/* Main Content Area */}
       <div className="flex-grow-1 ml-250" style={{ marginLeft: '250px' }}>
         <div className="container-fluid">
           <h2 className="mt-4">Welcome to Admin Dashboard</h2>
@@ -122,7 +163,66 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Routed content */}
+          <div className="row mt-4">
+            <div className="col-md-6">
+              <h5 className="text-center">Ticket per Equipe</h5>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={ticketsPerEquipe}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="col-md-6">
+              <h5 className="text-center">Equipes without Tickets</h5>
+              <ul className="list-group">
+                {
+                  equipesWithoutTickets.length === 0 ? (
+                    <li className="list-group-item">All teams are active 🎉</li>
+                  ) : (
+                    equipesWithoutTickets.map((equipe, index) => (
+                      <li key={index} className="list-group-item">{equipe}</li>
+                    ))
+                  )
+                }
+              </ul>
+            </div>
+          </div>
+
+          <div className="row mt-4">
+            <div className="col-md-7">
+              <h5 className="text-center">Recent Tickets</h5>
+              <ul className="list-group">
+                {recentTickets.map((ticket, index) => (
+                  <li key={index} className="list-group-item">
+                    "{ticket.designation || 'No Title'}" - {ticket.status} - {fmtDate(ticket.dateCreation)} - {ticket.collaborateur ? ticket.collaborateur : "none"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="col-md-5">
+              <h5 className="text-center">Users with Ticket Haute</h5>
+              <ul className="list-group">
+                {
+                  recentTickets
+                  
+                    .filter(ticket => ticket.priorite === "Haute")
+                    .map((ticket, index) => (
+                      <li key={index} className="list-group-item">
+                        {ticket.collaborateur} – {ticket.designation}
+                      </li>
+                    ))
+                }
+                
+              </ul>
+
+            </div>
+          </div>
+
+
           <div className="mt-5">
             <Outlet />
           </div>

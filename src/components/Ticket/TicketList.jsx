@@ -1,106 +1,117 @@
 // src/components/Ticket/TicketList.jsx
-
-import React, { useEffect, useState } from 'react'
-import { Row, Col, Card, Button, Form, Modal } from 'react-bootstrap'
+import React, { useEffect, useState, useMemo } from 'react'
+import {
+  Table,
+  Button,
+  Form,
+  Modal,
+  Card,
+  Row,
+  Col,
+} from 'react-bootstrap'
 import authService from '../../services/authService'
 import Leftside from '../nav/Leftside'
+import 'bootstrap/dist/css/bootstrap.min.css'
+
+// Simple error boundary
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) {
+      return <div className="alert alert-danger">Something went wrong.</div>
+    }
+    return this.props.children
+  }
+}
 
 export default function TicketList() {
   const [tickets, setTickets] = useState([])
   const [clients, setClients] = useState([])
   const [equipes, setEquipes] = useState([])
   const [modules, setModules] = useState([])
+  const [users, setUsers] = useState([])
 
-  const [filterPriority, setFilterPriority] = useState('All')
+  // Filters
+  const [fPriority, setFPriority] = useState('All')
+  const [fStatus, setFStatus] = useState('All')
+  const [fTeam, setFTeam] = useState('All')
+  const [fModule, setFModule] = useState('All')
+
   const [showModal, setShowModal] = useState(false)
-  const [editingTicket, setEditingTicket] = useState(null)
+  const [editingTicket, setEditing] = useState(null)
   const [form, setForm] = useState({
-    numTicket: '',
-    status: '',
-    priorite: '',
-    collaborateur: '',
-    echeance: '',
-    idClient: '',    // always a string
-    idEquip: '',
-    idModule: ''
+    numTicket: '', designation: '', status: '', priorite: '', collaborateur: '',
+    echeance: '', idClient: '', idEquip: '', idModule: '',
   })
 
-  // Fetch data
+  // load data
   useEffect(() => {
-    const loadAll = async () => {
-      const [tData, cData, eData, mData] = await Promise.all([
+    ; (async () => {
+      const [t, c, e, m, u] = await Promise.all([
         authService.getAllTickets(),
         authService.getClient(),
         authService.getEquipes(),
         authService.getModules(),
+        authService.getUsers(),
       ])
-      setTickets(tData)
-      setClients(cData)
-      setEquipes(eData)
-      setModules(mData)
-    }
-    loadAll()
+      setTickets(t); setClients(c); setEquipes(e); setModules(m); setUsers(u)
+    })()
   }, [])
 
-  // Unique priorities
-  const priorities = React.useMemo(() => {
-    const s = new Set(tickets.map(t => t.priorite).filter(Boolean))
-    return ['All', ...Array.from(s)]
-  }, [tickets])
+  // distinct filter lists
+  const priorities = useMemo(() => ['All', ...new Set(tickets.map(t => t.priorite))], [tickets])
+  const statuses = ['All', 'Accepte', 'Refuse', 'En_Attende']
+  const teams = useMemo(() => ['All', ...equipes.map(e => e.nomEquipe)], [equipes])
+  const mods = useMemo(() => ['All', ...modules.map(m => m.designation)], [modules])
 
-  // Filter & sort
+  // filtered tickets
   const displayed = tickets
-    .filter(t => filterPriority === 'All' || t.priorite === filterPriority)
+    .filter(t => fPriority === 'All' || t.priorite === fPriority)
+    .filter(t => fStatus === 'All' || t.status === fStatus)
+    .filter(t => fTeam === 'All' || t.idEquip?.nomEquipe === fTeam)
+    .filter(t => fModule === 'All' || t.idModule?.designation === fModule)
     .sort((a, b) => new Date(a.echeance) - new Date(b.echeance))
 
-  // Open modal (create or edit)
+  // for collaborator select
+  const teamUsers = useMemo(() => {
+    const eid = form.idEquip ? +form.idEquip : editingTicket?.idEquip?.id
+    return users.filter(u => u.idEquip?.id === eid)
+  }, [users, form.idEquip, editingTicket])
+
+  // modal open/close
   const openModal = ticket => {
     if (ticket) {
-      setEditingTicket(ticket)
+      setEditing(ticket)
       setForm({
         numTicket: ticket.numTicket,
         status: ticket.status,
         priorite: ticket.priorite,
         collaborateur: ticket.collaborateur,
         echeance: ticket.echeance,
-        idClient: ticket.idClient?.id?.toString() || '',
-        idEquip: ticket.idEquip?.id?.toString() || '',
-        idModule: ticket.idModule?.id?.toString() || '',
+        idClient: ticket.idClient?.id + '',
+        idEquip: ticket.idEquip?.id + '',
+        idModule: ticket.idModule?.id + '',
+        designation: ticket.designation || '',
+
       })
     } else {
-      setEditingTicket(null)
-      setForm({
-        numTicket: '',
-        status: '',
-        priorite: '',
-        collaborateur: '',
-        echeance: '',
-        idClient: '',
-        idEquip: '',
-        idModule: '',
-      })
+      setEditing(null)
+      setForm({ numTicket: '', status: '', priorite: '', collaborateur: '', echeance: '', idClient: '', idEquip: '', idModule: '' })
     }
     setShowModal(true)
   }
   const closeModal = () => setShowModal(false)
 
-  // Delete
-  const handleDelete = async id => {
-    if (!window.confirm('Delete this ticket?')) return
-    await authService.deleteTicket(id)
-    const updated = tickets.filter(t => t.id !== id)
-    setTickets(updated)
-  }
-
-  // Submit
+  // save
   const handleSubmit = async e => {
     e.preventDefault()
-    if (form.idClient === '') {
-      alert('Client is required')
-      return
-    }
+    if (!form.idClient) return alert('Client is required')
     const payload = {
-      numTicket: Number(form.numTicket),
+      numTicket: +form.numTicket,
       status: form.status,
       priorite: form.priorite,
       dateEffectationEquip: Date.now(),
@@ -108,184 +119,186 @@ export default function TicketList() {
       creationUser: localStorage.getItem('username') || '',
       collaborateur: form.collaborateur,
       echeance: form.echeance,
-      idClient: Number(form.idClient),
-      idEquip: form.idEquip ? Number(form.idEquip) : null,
-      idModule: form.idModule ? Number(form.idModule) : null,
+      idClient: +form.idClient,
+      idEquip: form.idEquip ? +form.idEquip : null,
+      idModule: form.idModule ? +form.idModule : null,
+      designation: form.designation,
+
     }
-    console.log('Sending payload:', payload)
-    let result
-    if (editingTicket) {
-      result = await authService.updateTicket(editingTicket.id, payload)
-      setTickets(tickets.map(t => (t.id === result.id ? result : t)))
-    } else {
-      result = await authService.createTicket(payload)
-      setTickets([result, ...tickets])
+    try {
+      let res
+      if (editingTicket) {
+        res = await authService.updateTicket(editingTicket.id, payload)
+        setTickets(ts => ts.map(t => t.id === res.id ? res : t))
+      } else {
+        res = await authService.createTicket(payload)
+        setTickets(ts => [res, ...ts])
+      }
+      closeModal()
+    } catch {
+      alert('Save failed')
     }
-    closeModal()
+  }
+
+  const fmtDate = v => {
+    if (!v) return '—'
+    const d = new Date(v)
+    return isNaN(d) ? '—' : d.toISOString().split('T')[0]
   }
 
   return (
-    <div className="d-flex">
-    <div className="p-4 flex-grow-1" style={{ marginLeft: 250 }}>
-      <Leftside/>
-      <br />
-      <br />
-      <h1 className="mb-4 text-center">Gestion des Modules</h1>
-      <div className="d-flex justify-content-between mb-3">
-        <Form.Select
-          style={{ width: 200 }}
-          value={filterPriority}
-          onChange={e => setFilterPriority(e.target.value)}
-        >
-          {priorities.map(pr => (
-            <option key={pr} value={pr}>{pr}</option>
-          ))}
-        </Form.Select>
-        <Button onClick={() => openModal(null)}>Add Ticket</Button>
-      </div>
+    <ErrorBoundary>
+      <div className="d-flex">
+        <Leftside />
+        <div style={{ marginLeft: 250, marginTop: 40 }} className="p-4 flex-grow-1">
+          {/* page header */}
+          <div className="d-flex align-items-center mb-4">
+            <h2 className="flex-grow-1">Ticket Management</h2>
+            <Button onClick={() => openModal(null)}>+ New Ticket</Button>
+          </div>
 
-      <Row xs={1} md={2} lg={3} className="g-4">
-        {displayed.map(t => (
-          <Col key={t.id}>
-            <Card className="h-100">
-              <Card.Body className="d-flex flex-column">
-                <Card.Title>#{t.numTicket}</Card.Title>
-                <Card.Subtitle className="mb-2 text-muted">{t.status}</Card.Subtitle>
-                <Card.Text className="flex-grow-1">
-                  <div><strong>Priority:</strong> {t.priorite}</div>
-                  <div><strong>Team:</strong> {t.idEquip?.nomEquipe || '—'}</div>
-                  <div><strong>Client:</strong> {t.idClient?.nom || '—'} {t.idClient?.prenom || '—'}</div>
-                  <div><strong>Module:</strong>{t.idModule.designation}</div>
-                  <div><strong>Due:</strong> {t.echeance}</div>
+          {/* filters */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Body>
+              <Row className="gy-2 gx-3">
+                <Col md>
+                  <Form.Label>Priority</Form.Label>
+                  <Form.Select value={fPriority} onChange={e => setFPriority(e.target.value)}>
+                    {priorities.map(p => <option key={p}>{p}</option>)}
+                  </Form.Select>
+                </Col>
+                <Col md>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select value={fStatus} onChange={e => setFStatus(e.target.value)}>
+                    {statuses.map(s => <option key={s}>{s}</option>)}
+                  </Form.Select>
+                </Col>
+                <Col md>
+                  <Form.Label>Team</Form.Label>
+                  <Form.Select value={fTeam} onChange={e => setFTeam(e.target.value)}>
+                    {teams.map(t => <option key={t}>{t}</option>)}
+                  </Form.Select>
+                </Col>
+                <Col md>
+                  <Form.Label>Module</Form.Label>
+                  <Form.Select value={fModule} onChange={e => setFModule(e.target.value)}>
+                    {mods.map(m => <option key={m}>{m}</option>)}
+                  </Form.Select>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
 
-                </Card.Text>
-                <div className="mt-auto">
-                  <Button size="sm" onClick={() => openModal(t)} className="me-2">Edit</Button>
-                  <Button size="sm" variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
+          {/* ticket table */}
+          <Table striped hover responsive className="shadow-sm bg-white rounded">
+            <thead className="table-dark">
+              <tr>
+                <th>ID</th><th>#</th><th>Designation</th><th>Status</th><th>Priority</th>
+                <th>Team</th><th>Client</th><th>Module</th><th>Due</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map(t => (
+                <tr key={t.id}>
+                  <td>{t.id}</td>
+                  <td>{t.numTicket}</td>
+                  <td>{t.designation}</td>
+                  <td>{t.status}</td>
+                  <td>{t.priorite}</td>
+                  <td>{t.idEquip?.nomEquipe || '—'}</td>
+                  <td>{t.idClient ? `${t.idClient.nom} ${t.idClient.prenom}` : '—'}</td>
+                  <td>{t.idModule?.designation || '—'}</td>
+                  <td>{fmtDate(t.echeance)}</td>
+                  <td>
+                    <Button size="sm" onClick={() => openModal(t)} className="me-2">Edit</Button>
+                    <Button size="sm" variant="danger" onClick={() => { if (window.confirm('Delete?')) authService.deleteTicket(t.id) && setTickets(ts => ts.filter(x => x.id !== t.id)) }}>Del</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+
+          {/* modal */}
+          <Modal show={showModal} onHide={closeModal}>
+            <Modal.Header closeButton>
+              <Modal.Title>{editingTicket ? 'Edit' : 'New'} Ticket</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Form onSubmit={handleSubmit}>
+                <Row className="gy-2">
+                  <Col md={6}>
+                    <Form.Label>Ticket #</Form.Label>
+                    <Form.Control type="number" value={form.numTicket} onChange={e => setForm({ ...form, numTicket: e.target.value })} required />
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Designation</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={form.designation}
+                      onChange={e => setForm({ ...form, designation: e.target.value })}
+                      required
+                    />
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Label>Status</Form.Label>
+                    <Form.Select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} required>
+                      <option value="">– Select –</option>
+                      <option>Accepte</option>
+                      <option>Refuse</option>
+                      <option>En_Attende</option>
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Priority</Form.Label>
+                    <Form.Select value={form.priorite} onChange={e => setForm({ ...form, priorite: e.target.value })} required>
+                      <option>– Select –</option>
+                      {priorities.filter(p => 'All' !== p).map(p => <option key={p}>{p}</option>)}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Due Date</Form.Label>
+                    <Form.Control type="date" value={form.echeance} onChange={e => setForm({ ...form, echeance: e.target.value })} required />
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Team</Form.Label>
+                    <Form.Select value={form.idEquip} onChange={e => setForm({ ...form, idEquip: e.target.value, collaborateur: '' })}>
+                      <option value="">None</option>
+                      {equipes.map(eq => <option key={eq.id} value={eq.id}>{eq.nomEquipe}</option>)}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Collaborator</Form.Label>
+                    <Form.Select value={form.collaborateur} onChange={e => setForm({ ...form, collaborateur: e.target.value })} required>
+                      <option>– Select member –</option>
+                      {teamUsers.map(u => <option key={u.id}>{u.login}</option>)}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Client</Form.Label>
+                    <Form.Select value={form.idClient} onChange={e => setForm({ ...form, idClient: e.target.value })} required>
+                      <option>– Select client –</option>
+                      {clients.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Module</Form.Label>
+                    <Form.Select value={form.idModule} onChange={e => setForm({ ...form, idModule: e.target.value })}>
+                      <option>None</option>
+                      {modules.map(m => <option key={m.id} value={m.id}>{m.designation}</option>)}
+                    </Form.Select>
+                  </Col>
+                </Row>
+                <div className="text-end mt-3">
+                  <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+                  <Button type="submit" className="ms-2">Save</Button>
                 </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+              </Form>
+            </Modal.Body>
+          </Modal>
 
-      <Modal show={showModal} onHide={closeModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>{editingTicket ? 'Edit' : 'Add'} Ticket</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="numTicket" className="mb-2">
-              <Form.Label>Ticket #</Form.Label>
-              <Form.Control
-                type="number"
-                value={form.numTicket}
-                onChange={e => setForm({ ...form, numTicket: e.target.value })}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group controlId="status" className="mb-2">
-              <Form.Label>Status</Form.Label>
-              <Form.Select
-                value={form.status}
-                onChange={e => setForm({ ...form, status: e.target.value })}
-                required
-              >
-                <option value="" disabled>{tickets.status}</option>
-                <option value="Accepte">Accepte</option>
-                <option value="Refuse">Refuse</option>
-                <option value="En_Attende">En_Attende</option>
-              </Form.Select>
-            </Form.Group>
-
-
-            <Form.Group controlId="priorite" className="mb-2">
-              <Form.Label>Priority</Form.Label>
-              <Form.Select
-                value={form.priorite}
-                onChange={e => setForm({ ...form, priorite: e.target.value })}
-                required
-              >
-                <option value="">Select priority</option>
-                {priorities
-                  .filter(p => p !== 'All')
-                  .map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group controlId="collaborateur" className="mb-2">
-              <Form.Label>Collaborator</Form.Label>
-              <Form.Control
-                type="text"
-                value={form.collaborateur}
-                onChange={e => setForm({ ...form, collaborateur: e.target.value })}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group controlId="echeance" className="mb-2">
-              <Form.Label>Due Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={form.echeance}
-                onChange={e => setForm({ ...form, echeance: e.target.value })}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group controlId="idClient" className="mb-2">
-              <Form.Label>Client</Form.Label>
-              <Form.Select
-                value={form.idClient}
-                onChange={e => setForm({ ...form, idClient: e.target.value })}
-                required
-              >
-                <option value="">-- Select client --</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} {c.prenom}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group controlId="idEquip" className="mb-2">
-              <Form.Label>Team (optional)</Form.Label>
-              <Form.Select
-                value={form.idEquip}
-                onChange={e => setForm({ ...form, idEquip: e.target.value })}
-              >
-                <option value="">None</option>
-                {equipes.map(eq => (
-                  <option key={eq.id} value={eq.id}>{eq.nomEquipe}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group controlId="idModule" className="mb-2">
-              <Form.Label>Module (optional)</Form.Label>
-              <Form.Select
-                value={form.idModule}
-                onChange={e => setForm({ ...form, idModule: e.target.value })}
-              >
-                <option value="">None</option>
-                {modules.map(m => (
-                  <option key={m.id} value={m.id}>{m.designation}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <div className="d-flex justify-content-end mt-3">
-              <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-              <Button type="submit" className="ms-2">Save</Button>
-            </div>
-          </Form>
-        </Modal.Body>
-      </Modal>
-    </div>
-    </div>
+        </div>
+      </div>
+    </ErrorBoundary>
   )
 }

@@ -1,5 +1,4 @@
-// src/components/error/Settings.jsx
-
+// src/components/settings/Settings.jsx
 import React, { useState, useEffect } from 'react'
 import {
   CContainer,
@@ -20,24 +19,33 @@ import {
   CTableHeaderCell,
   CTableDataCell,
   CFormSwitch,
+  CCollapse,
 } from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import { cilLockLocked, cilUser, cilMagnifyingGlass } from '@coreui/icons'
 import authService from '../../services/authService'
 
 export default function Settings() {
   const [me, setMe] = useState(null)
   const [profile, setProfile] = useState({ login: '', password: '' })
   const [users, setUsers] = useState([])
+  const [filter, setFilter] = useState('')
   const [alert, setAlert] = useState({ color: '', text: '' })
+  const [openUsers, setOpenUsers] = useState(true)
 
   // Load current user + all users
   useEffect(() => {
     ;(async () => {
-      const current = await authService.getCurrentUser()
-      setMe(current)
-      setProfile({ login: current.login, password: '' })
-      const all = await authService.getUsers()
-      setUsers(all)
-    })().catch(console.error)
+      try {
+        const current = await authService.getCurrentUser()
+        setMe(current)
+        setProfile({ login: current.login, password: '' })
+        const all = await authService.getUsers()
+        setUsers(all)
+      } catch (e) {
+        console.error(e)
+      }
+    })()
   }, [])
 
   // Submit profile update
@@ -59,7 +67,9 @@ export default function Settings() {
   const toggleActive = async (user) => {
     try {
       await authService.updateUser(user.id, { ...user, actif: !user.actif })
-      setUsers(users.map(u => (u.id === user.id ? { ...u, actif: !u.actif } : u)))
+      setUsers((us) =>
+        us.map((u) => (u.id === user.id ? { ...u, actif: !u.actif } : u)),
+      )
     } catch (err) {
       console.error(err)
     }
@@ -76,20 +86,32 @@ export default function Settings() {
       setAlert({ color: 'success', text: 'Rôle Admin transféré.' })
       const all = await authService.getUsers()
       setUsers(all)
-    } catch (err) {
+    } catch {
       setAlert({ color: 'danger', text: 'Erreur de transfert.' })
     }
   }
 
+  // Filtered list
+  const visibleUsers = users.filter((u) =>
+    u.login.toLowerCase().includes(filter),
+  )
+
   return (
-    <CContainer className="py-4">
+    <CContainer className="py-4" style={{marginTop:50}}>
       <CRow>
-        {/* My Profile */}
+        {/* My Profile Card */}
         <CCol md={4}>
-          <CCard className="mb-4">
-            <CCardHeader>Mon Profil</CCardHeader>
+          <CCard className="mb-4 shadow-sm">
+            <CCardHeader>
+              <CIcon icon={cilUser} className="me-2" style={{width:10}}/>
+              Mon Profil
+            </CCardHeader>
             <CCardBody>
-              {alert.text && <CAlert color={alert.color}>{alert.text}</CAlert>}
+              {alert.text && (
+                <CAlert color={alert.color} dismissible onClose={() => setAlert({})}>
+                  {alert.text}
+                </CAlert>
+              )}
               <CForm onSubmit={handleProfileSubmit}>
                 <div className="mb-3">
                   <CFormLabel>Username</CFormLabel>
@@ -100,7 +122,10 @@ export default function Settings() {
                   />
                 </div>
                 <div className="mb-3">
-                  <CFormLabel>New Password</CFormLabel>
+                  <CFormLabel>
+                    <CIcon icon={cilLockLocked} className="me-1" />
+                    New Password
+                  </CFormLabel>
                   <CFormInput
                     type="password"
                     value={profile.password}
@@ -108,59 +133,90 @@ export default function Settings() {
                     placeholder="Laisser vide pour conserver"
                   />
                 </div>
-                <CButton type="submit" color="primary">Enregistrer</CButton>
+                <CButton type="submit" color="primary">
+                  Enregistrer
+                </CButton>
               </CForm>
             </CCardBody>
           </CCard>
         </CCol>
 
-        {/* User Management */}
+        {/* User Management Card */}
         <CCol md={8}>
-          <CCard>
-            <CCardHeader>Gestion des Utilisateurs</CCardHeader>
-            <CCardBody>
-              <CTable striped hover responsive>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>ID</CTableHeaderCell>
-                    <CTableHeaderCell>Login</CTableHeaderCell>
-                    <CTableHeaderCell>Role</CTableHeaderCell>
-                    <CTableHeaderCell>Actif</CTableHeaderCell>
-                    <CTableHeaderCell>Actions</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {users.map((u) => (
-                    <CTableRow key={u.id}>
-                      <CTableDataCell>{u.id}</CTableDataCell>
-                      <CTableDataCell>{u.login}</CTableDataCell>
-                      <CTableDataCell>
-                        <strong className={u.role === 'Admin' ? 'text-danger' : 'text-muted'}>
-                          {u.role}
-                        </strong>
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormSwitch
-                          checked={u.actif}
-                          onChange={() => toggleActive(u)}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {me?.role === 'Admin' && u.role !== 'Admin' && (
-                          <CButton
-                            size="sm"
-                            color="warning"
-                            onClick={() => transferAdmin(u)}
-                          >
-                            Transférer Admin
-                          </CButton>
-                        )}
-                      </CTableDataCell>
+          <CCard className="shadow-sm">
+            <CCardHeader
+              onClick={() => setOpenUsers(!openUsers)}
+              style={{ cursor: 'pointer' }}
+            >
+              <CIcon
+                icon={cilMagnifyingGlass}
+                className="me-2"
+                style={{width:100}}
+              />
+              Gestion des Utilisateurs{' '}
+              <span className="float-end">
+                {openUsers ? '▲' : '▼'}
+              </span>
+            </CCardHeader>
+            <CCollapse visible={openUsers}>
+              <CCardBody>
+                <div className="mb-3 d-flex align-items-center">
+                  <CFormInput
+                    placeholder="Rechercher par login..."
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value.toLowerCase())}
+                    style={{ maxWidth: '300px' }}
+                  />
+                </div>
+                <CTable hover responsive bordered>
+                  <CTableHead color="dark">
+                    <CTableRow>
+                      <CTableHeaderCell>ID</CTableHeaderCell>
+                      <CTableHeaderCell>Login</CTableHeaderCell>
+                      <CTableHeaderCell>Role</CTableHeaderCell>
+                      <CTableHeaderCell>Actif</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">
+                        Actions
+                      </CTableHeaderCell>
                     </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
-            </CCardBody>
+                  </CTableHead>
+                  <CTableBody>
+                    {visibleUsers.map((u) => (
+                      <CTableRow key={u.id}>
+                        <CTableDataCell>{u.id}</CTableDataCell>
+                        <CTableDataCell>{u.login}</CTableDataCell>
+                        <CTableDataCell>
+                          <strong
+                            className={
+                              u.role === 'Admin' ? 'text-danger' : 'text-muted'
+                            }
+                          >
+                            {u.role}
+                          </strong>
+                        </CTableDataCell>
+                        <CTableDataCell className="text-center">
+                          <CFormSwitch
+                            checked={u.actif}
+                            onChange={() => toggleActive(u)}
+                          />
+                        </CTableDataCell>
+                        <CTableDataCell className="text-center">
+                          {me?.role === 'Admin' && u.role !== 'Admin' && (
+                            <CButton
+                              size="sm"
+                              color="warning"
+                              onClick={() => transferAdmin(u)}
+                            >
+                              Transférer Admin
+                            </CButton>
+                          )}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              </CCardBody>
+            </CCollapse>
           </CCard>
         </CCol>
       </CRow>

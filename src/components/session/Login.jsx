@@ -18,27 +18,28 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import authService from '../../services/authService'
+import decodeToken from '../../services/decodeToken';
 
 export default function Login() {
   const [credentials, setCredentials] = useState({ login: '', password: '' })
   const [error, setError] = useState('')
-  const navigate = useNavigate()
-
+  const navigate = useNavigate() 
   useEffect(() => {
     localStorage.clear()
-  }, [])
+  }, []) 
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const token = await authService.login(credentials)
-      localStorage.setItem('token', token)
-
-      const me = await authService.getCurrentUser()
-      localStorage.setItem('userRole', me.role)
-      localStorage.setItem('username', me.login)
-
-      if (me.role === 'Admin') {
+      const tokenorgine =await authService.login(credentials)
+      const token=decodeToken(tokenorgine)
+      const role = token.roles[0].authority;
+      const username = token.sub;
+      localStorage.setItem('token', tokenorgine)
+      localStorage.setItem('userrole', role)
+      localStorage.setItem('username', username)
+     
+      if (role === "ROLE_Admin") {
         navigate('/AdminDashboard')
       } else {
         navigate('/dashboard')
